@@ -17,6 +17,11 @@ gen/
 build/
 /*/build/
 
+# Eclipse files
+.project
+.classpath
+.settings/
+
 .idea/
 *.iml
 
