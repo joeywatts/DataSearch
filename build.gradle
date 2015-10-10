@@ -9,16 +9,37 @@ buildscript {
 
     dependencies {
         classpath 'com.android.tools.build:gradle:1.1.3'
-        compile 'com.android.support:support-v4:18.0.+'
     }
 }
 
 apply plugin: 'com.android.application'
 
+repositories {
+    jcenter()
+    maven {
+        url 'https://esri.bintray.com/arcgis'
+    }
+}
+
+dependencies {
+    compile 'com.android.support:support-v4:23.0.1'
+    compile 'com.esri.arcgis.android:arcgis-android:10.2.7'
+}
+
 android {
     compileSdkVersion 22
     buildToolsVersion "23.0.1"
     defaultConfig {
-        minSdkVersion 14
+        minSdkVersion 15
+    }
+    packagingOptions{
+        exclude 'META-INF/LGPL2.1'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/NOTICE'
+    }
+    dependencies {
+        compile 'com.esri.arcgis.android:arcgis-android:10.2.7'
+        compile fileTree(dir: 'libs', include: ['*.jar'])
+        compile 'com.android.support:appcompat-v7:22.1.0'
     }
 }
