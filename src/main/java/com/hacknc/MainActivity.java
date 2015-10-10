@@ -154,7 +154,7 @@ public class MainActivity extends Activity {
                 // get return geometry from geocode result
                 Point resultPoint = geocodeResult.getLocation();
                 // create marker symbol to represent location
-                SimpleMarkerSymbol resultSymbol = new SimpleMarkerSymbol(Color.RED, 16, SimpleMarkerSymbol.STYLE.CROSS);
+                SimpleMarkerSymbol resultSymbol = new SimpleMarkerSymbol(Color.RED, 16, SimpleMarkerSymbol.STYLE.CIRCLE);
                 // create graphic object for resulting location
                 Graphic resultLocGraphic = new Graphic(resultPoint, resultSymbol);
                 // add graphic to location layer
