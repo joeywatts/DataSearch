@@ -18,23 +18,40 @@ import com.hacknc.census.CensusRequest;
 import com.hacknc.census.CensusResponseListener;
 import com.hacknc.census.CensusVariable;
 
-import java.util.Map;
 import android.widget.Toast;
+import com.esri.android.map.FeatureLayer;
 import com.esri.android.map.GraphicsLayer;
+import com.esri.android.map.Layer;
 import com.esri.android.map.MapView;
+import com.esri.android.map.ags.ArcGISFeatureLayer;
 import com.esri.android.map.event.OnStatusChangedListener;
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Point;
+import com.esri.core.map.FeatureSet;
 import com.esri.core.map.Graphic;
+import com.esri.core.symbol.SimpleFillSymbol;
+import com.esri.core.symbol.SimpleLineSymbol;
 import com.esri.core.symbol.SimpleMarkerSymbol;
 import com.esri.core.symbol.TextSymbol;
-import com.esri.core.tasks.geocode.LocatorFindParameters;
 import com.esri.core.tasks.geocode.Locator;
+import com.esri.core.tasks.geocode.LocatorFindParameters;
 import com.esri.core.tasks.geocode.LocatorGeocodeResult;
+
 import com.hacknc.database.CrimeData;
 import com.hacknc.database.DataDB;
 
+import com.hacknc.census.*;
+import com.hacknc.geocode.GeocodeAPI;
+import com.hacknc.geocode.GeocodeGeometryResultsListener;
+import com.hacknc.geocode.ReverseGeocodeResult;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends Activity implements OnSingleTapListener{
 
@@ -141,22 +158,69 @@ public class MainActivity extends Activity implements OnSingleTapListener{
     @Override
     public void onStart() {
         super.onStart();
-        performRequest();
+        performGeocodeRequest();
     }
 
-    private void performRequest() {
+    private void performCensusRequest(ReverseGeocodeResult result) {
         CensusAPI api = new CensusAPI("***REMOVED***");
-        County county = new County("*", "06");
-        CensusRequest request = new CensusRequest(county);
-        request.add(CensusVariable.POPULATION_BLACK_ALONE);
-        Log.d("Hello", "World");
+        CensusRequest request = new CensusRequest()
+                .setState(result.getState())
+                .setCounty("*")
+                .setTract("*");
+        request.add(CensusVariable.POVERTY).add(CensusVariable.POPULATION);
         api.request(request, new CensusResponseListener() {
             @Override
-            public void onResponse(Map<CensusVariable, String> response) {
-                for (Map.Entry<CensusVariable, String> entry : response.entrySet()) {
-                    Log.d("HackNC", entry.getKey() + " - " + entry.getValue());
+            public void onResponse(CensusResultRow[] result) {
+                for (int i = 0; i < result.length; i++) {
+                    CensusResultRow c = result[i];
+                    String loc = "";
+                    if (c.getBlockGroup() != null) {
+                        loc += c.getBlockGroup() + ", ";
+                    }
+                    if (c.getTract() != null) {
+                        loc += c.getTract() + ", ";
+                    }
+                    if (c.getCounty() != null) {
+                        loc += c.getCounty() + ", ";
+                    }
+                    if (c.getState() != null) {
+                        loc += c.getState();
+                    }
+                    String s = "['" + loc + "'";
+                    Iterator<Map.Entry<CensusVariable, String>> iter = c.getData().entrySet().iterator();
+                    while (iter.hasNext()) {
+                        Map.Entry<CensusVariable, String> entry = iter.next();
+                        s += ", " + entry.getKey() + " -> '" + entry.getValue() + "'";
+                    }
+                    s += "]";
+                    Log.d("Census", s);
                 }
-                Log.d("HackNC", "done");
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Log.d("HackNC", "Error", t);
+            }
+        });
+    }
+
+    private void performGeocodeRequest() {
+        /**
+        GeocodeAPI.reverseGeocode(38.6159530f, -76.6130150f, new ReverseGeocodeResultsListener() {
+            @Override
+            public void onSuccess(ReverseGeocodeResult result) {
+                performCensusRequest(result);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Log.d("Geocode", "Error", t);
+            }
+        });*/
+        GeocodeAPI.geocodeGeometryQuery("tract", 38.6159530f, -76.6130150f, map, new SimpleFillSymbol(Color.BLUE), new GeocodeGeometryResultsListener() {
+            @Override
+            public void onSuccess(Layer layer) {
+                map.addLayer(layer);
             }
 
             @Override
