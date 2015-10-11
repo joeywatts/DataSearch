@@ -1,28 +1,33 @@
 package com.hacknc;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.SearchManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.v4.widget.DrawerLayout;
+import android.preference.PreferenceManager;
 import android.support.v4.app.ActionBarDrawerToggle;
+import android.support.v4.widget.DrawerLayout;
 import android.util.Log;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import com.esri.android.map.LocationDisplayManager;
-import com.esri.android.map.event.OnSingleTapListener;
-import com.esri.core.geometry.*;
-import com.esri.core.map.FeatureSet;
-import com.hacknc.census.CensusAPI;
-import com.hacknc.census.CensusRequest;
-import com.hacknc.census.CensusResponseListener;
-import com.hacknc.census.CensusVariable;
-
+import android.widget.SearchView;
 import android.widget.Toast;
 import com.esri.android.map.GraphicsLayer;
+import com.esri.android.map.LocationDisplayManager;
+import com.esri.android.map.MapOptions;
 import com.esri.android.map.MapView;
+import com.esri.android.map.event.OnSingleTapListener;
 import com.esri.android.map.event.OnStatusChangedListener;
+import com.esri.core.geometry.*;
+import com.esri.core.map.FeatureSet;
 import com.esri.core.map.Graphic;
 import com.esri.core.symbol.SimpleFillSymbol;
 import com.esri.core.symbol.SimpleMarkerSymbol;
@@ -30,11 +35,8 @@ import com.esri.core.symbol.TextSymbol;
 import com.esri.core.tasks.geocode.Locator;
 import com.esri.core.tasks.geocode.LocatorFindParameters;
 import com.esri.core.tasks.geocode.LocatorGeocodeResult;
-
-import com.hacknc.database.CrimeData;
-
 import com.hacknc.census.*;
-import static com.hacknc.census.CensusVariable.*;
+import com.hacknc.database.CrimeData;
 import com.hacknc.geocode.GeocodeAPI;
 import com.hacknc.geocode.GeocodeGeometryResultsListener;
 import com.hacknc.geocode.ReverseGeocodeResult;
@@ -48,7 +50,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends Activity implements OnSingleTapListener {
+import static com.hacknc.census.CensusVariable.POPULATION;
+
+
+public class MainActivity extends Activity implements OnSingleTapListener, OnSharedPreferenceChangeListener {
 
     static class TractData {
         Graphic graphic;
@@ -64,12 +69,15 @@ public class MainActivity extends Activity implements OnSingleTapListener {
     ReverseGeocodeResult lastTap;
     Point locationLayerPoint;
     String locationLayerPointString;
+    Menu mMenu;
 
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
     private CensusAPI censusApi;
+    private OnSharedPreferenceChangeListener prefListener;
 
     @Override
+
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_layout);
@@ -99,6 +107,7 @@ public class MainActivity extends Activity implements OnSingleTapListener {
                 super.onDrawerOpened(drawerView);
                 getActionBar().setTitle("Options");
             }
+
         };
 
         mDrawerLayout.setDrawerListener(mDrawerToggle);
@@ -130,10 +139,66 @@ public class MainActivity extends Activity implements OnSingleTapListener {
                     ldm.setAutoPanMode(LocationDisplayManager.AutoPanMode.NAVIGATION);
                     ldm.start();
                     map.centerAt(ldm.getLocation().getLatitude(), ldm.getLocation().getLongitude(), true);
+                    String option = PreferenceManager.getDefaultSharedPreferences(MainActivity.this).getString
+                            ("pref_mapOption", "STREETS");
+                    final MapOptions top = new MapOptions(getMapType(option));
+                    map.setMapOptions(top);
                 }
             }
         });
+        handleIntent(getIntent());
 
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
+            String query = intent.getStringExtra(SearchManager.QUERY);
+            //use the query to search your data somehow
+        }
+    }
+
+    @SuppressLint("NewApi")
+    @Override
+    public boolean onSearchRequested() {
+        MenuItem mi = mMenu.findItem(R.id.search);
+        if (mi.isActionViewExpanded()) {
+            mi.collapseActionView();
+        } else {
+            mi.expandActionView();
+        }
+
+        return super.onSearchRequested();
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
+
+        if (key.equals("pref_mapOption")) {
+            String option = prefs.getString("pref_mapOption", "STREETS");
+
+            final MapOptions top = new MapOptions(getMapType(option));
+            map.setMapOptions(top);
+            Log.d("NC", option);
+            Log.d("NC", "---------- it happened ---------------");
+        }
+
+    }
+
+    private MapOptions.MapType getMapType(String type) {
+        if (type.equals("STREETS")) return MapOptions.MapType.STREETS;
+        else if (type.equals("TOPO")) return MapOptions.MapType.TOPO;
+        else if (type.equals("OCEAN")) return MapOptions.MapType.OCEANS;
+        else if (type.equals("GREY")) return MapOptions.MapType.GRAY;
+        else if (type.equals("SATELLITE")) return MapOptions.MapType.SATELLITE;
+        else if (type.equals("NATIONAL_GEOGRAPHIC")) return MapOptions.MapType.NATIONAL_GEOGRAPHIC;
+        else if (type.equals("OSM")) return MapOptions.MapType.OSM;
+        else if (type.equals("HYBRID")) return MapOptions.MapType.HYBRID;
+        return MapOptions.MapType.STREETS;
     }
 
     @Override
@@ -150,13 +215,28 @@ public class MainActivity extends Activity implements OnSingleTapListener {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.main, menu);
+        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
+
+        SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView = (SearchView) menu.findItem(R.id.search).getActionView();
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
+        return true;
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Pass the event to ActionBarDrawerToggle, if it returns
         // true, then it has handled the app icon touch event
         if (mDrawerToggle.onOptionsItemSelected(item)) {
             return true;
+        } else if (item.getItemId() == R.id.menu_settings) {
+            Intent intent = new Intent(this, Settings.class);
+            startActivity(intent);
         }
-        // Handle your other action bar items...
 
         return super.onOptionsItemSelected(item);
     }
@@ -206,16 +286,23 @@ public class MainActivity extends Activity implements OnSingleTapListener {
         });
     }
 
+
     @Override
     protected void onPause() {
         super.onPause();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        prefs.unregisterOnSharedPreferenceChangeListener(this);
         map.pause();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        prefs.registerOnSharedPreferenceChangeListener(this);
         map.unpause();
+        final MapOptions top = new MapOptions(getMapType(prefs.getString("pref_mapOption", "STREETS")));
+        map.setMapOptions(top);
     }
 
     @Override
@@ -304,7 +391,8 @@ public class MainActivity extends Activity implements OnSingleTapListener {
         });
     }
 
-    private void loadDataForTracts (ReverseGeocodeResult geocodeResult, final Map<String, TractData> map) {
+
+    private void loadDataForTracts(ReverseGeocodeResult geocodeResult, final Map<String, TractData> map) {
         CensusRequest request = new CensusRequest();
         request.setState(geocodeResult.getState()).setCounty(geocodeResult.getCounty()).setTract("*");
         request.add(POPULATION);
