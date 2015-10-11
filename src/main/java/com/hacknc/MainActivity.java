@@ -96,7 +96,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         mDrawerToggle = new ActionBarDrawerToggle(this,                  /* host Activity */
                 mDrawerLayout,         /* DrawerLayout object */
-                R.drawable.pg_logo,  /* nav drawer icon to replace 'Up' caret */
+                R.drawable.safesearch,  /* nav drawer icon to replace 'Up' caret */
                 R.string.open_drawer,  /* "open drawer" description */
                 R.string.close_drawer  /* "close drawer" description */) {
 
@@ -252,46 +252,6 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
     @Override
     public void onStart() {
         super.onStart();
-    }
-
-    private void performCensusRequest(ReverseGeocodeResult result) {
-        CensusAPI api = new CensusAPI("***REMOVED***");
-        CensusRequest request = new CensusRequest().setState(result.getState()).setCounty("*").setTract("*");
-        request.add(CensusVariable.POVERTY).add(CensusVariable.POPULATION);
-        api.request(request, new CensusResponseListener() {
-            @Override
-            public void onResponse(CensusResultRow[] result) {
-                for (int i = 0; i < result.length; i++) {
-                    CensusResultRow c = result[i];
-                    String loc = "";
-                    if (c.getBlockGroup() != null) {
-                        loc += c.getBlockGroup() + ", ";
-                    }
-                    if (c.getTract() != null) {
-                        loc += c.getTract() + ", ";
-                    }
-                    if (c.getCounty() != null) {
-                        loc += c.getCounty() + ", ";
-                    }
-                    if (c.getState() != null) {
-                        loc += c.getState();
-                    }
-                    String s = "['" + loc + "'";
-                    Iterator<Map.Entry<CensusVariable, String>> iter = c.getData().entrySet().iterator();
-                    while (iter.hasNext()) {
-                        Map.Entry<CensusVariable, String> entry = iter.next();
-                        s += ", " + entry.getKey() + " -> '" + entry.getValue() + "'";
-                    }
-                    s += "]";
-                    Log.d("Census", s);
-                }
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                Log.d("HackNC", "Error", t);
-            }
-        });
     }
 
 
@@ -453,8 +413,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
             if (data.censusData == null) continue;
             double score = Double.parseDouble(data.censusData.getData().get(var));
             score = (score - min) / (max - min);
-            Log.d("Color", "" + score * 360.0f * 0.4f);
-            float[] hsv = {360.0f * (float) score * 0.4f, 0.9f, 0.9f};
+            float[] hsv = {120.0f * (float) score, 0.9f, 0.9f};
             int color = Color.HSVToColor(125, hsv);
             polygons.updateGraphic(data.graphicId, new SimpleFillSymbol(color));
         }
