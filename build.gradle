@@ -25,6 +25,7 @@ dependencies {
     compile 'com.android.support:support-v4:23.0.1'
     compile 'com.loopj.android:android-async-http:1.4.9'
     compile 'com.esri.arcgis.android:arcgis-android:10.2.7'
+    compile 'com.readystatesoftware.sqliteasset:sqliteassethelper:+'
 }
 
 android {

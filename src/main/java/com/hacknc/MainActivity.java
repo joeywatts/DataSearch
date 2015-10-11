@@ -31,6 +31,8 @@ import com.esri.core.symbol.TextSymbol;
 import com.esri.core.tasks.geocode.LocatorFindParameters;
 import com.esri.core.tasks.geocode.Locator;
 import com.esri.core.tasks.geocode.LocatorGeocodeResult;
+import com.hacknc.database.CrimeData;
+import com.hacknc.database.DataDB;
 
 import java.util.List;
 
@@ -48,6 +50,11 @@ public class MainActivity extends Activity implements OnSingleTapListener{
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_layout);
+
+        /////////////// LOAD DB ///////////////
+        CrimeData.loadDB(this);
+
+        /////////////// NAV DRAWER ///////////////
 
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         mDrawerToggle = new ActionBarDrawerToggle(
@@ -67,7 +74,7 @@ public class MainActivity extends Activity implements OnSingleTapListener{
             /** Called when a drawer has settled in a completely open state. */
             public void onDrawerOpened(View drawerView) {
                 super.onDrawerOpened(drawerView);
-                getActionBar().setTitle("Penis title");
+                getActionBar().setTitle("Options");
             }
         };
 
@@ -103,6 +110,7 @@ public class MainActivity extends Activity implements OnSingleTapListener{
                 }
             }
         });
+
     }
 
     @Override
