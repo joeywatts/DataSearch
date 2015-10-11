@@ -1,10 +1,18 @@
 package com.hacknc;
 
 import android.app.Activity;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v4.app.ActionBarDrawerToggle;
 import android.util.Log;
+import android.view.MenuItem;
+import android.view.View;
+import com.esri.android.map.LocationDisplayManager;
+import com.esri.android.map.event.OnSingleTapListener;
+import com.esri.core.tasks.geocode.LocatorReverseGeocodeResult;
 import com.hacknc.census.CensusAPI;
 import com.hacknc.census.CensusRequest;
 import com.hacknc.census.CensusResponseListener;
@@ -26,17 +34,52 @@ import com.esri.core.tasks.geocode.LocatorGeocodeResult;
 
 import java.util.List;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements OnSingleTapListener{
 
     MapView map;
     GraphicsLayer locationLayer;
     Point locationLayerPoint;
     String locationLayerPointString;
 
+    private DrawerLayout mDrawerLayout;
+    private ActionBarDrawerToggle mDrawerToggle;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_layout);
+
+        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        mDrawerToggle = new ActionBarDrawerToggle(
+                this,                  /* host Activity */
+                mDrawerLayout,         /* DrawerLayout object */
+                R.drawable.pg_logo,  /* nav drawer icon to replace 'Up' caret */
+                R.string.open_drawer,  /* "open drawer" description */
+                R.string.close_drawer  /* "close drawer" description */
+        ) {
+
+            /** Called when a drawer has settled in a completely closed state. */
+            public void onDrawerClosed(View view) {
+                super.onDrawerClosed(view);
+                getActionBar().setTitle("HackNC");
+            }
+
+            /** Called when a drawer has settled in a completely open state. */
+            public void onDrawerOpened(View drawerView) {
+                super.onDrawerOpened(drawerView);
+                getActionBar().setTitle("Penis title");
+            }
+        };
+
+        mDrawerLayout.setDrawerListener(mDrawerToggle);
+
+        // Set the drawer toggle as the DrawerListener
+        mDrawerLayout.setDrawerListener(mDrawerToggle);
+
+        getActionBar().setDisplayHomeAsUpEnabled(true);
+        getActionBar().setHomeButtonEnabled(true);
+
+        /////////////// MAP ///////////////
 
         // Get the Map View
         map = (MapView) findViewById(R.id.map);
@@ -46,16 +89,45 @@ public class MainActivity extends Activity {
         // For location
         locationLayer = new GraphicsLayer();
         map.addLayer(locationLayer);
+        map.setOnSingleTapListener(this);
 
         // This will be called when the view is initialized.
         map.setOnStatusChangedListener(new OnStatusChangedListener() {
             public void onStatusChanged(Object source, STATUS status) {
                 if ((source == map) && (status == STATUS.INITIALIZED)) {
-                    executeLocatorTask("***REMOVED***");
+                    //executeLocatorTask("***REMOVED***");
+                    LocationDisplayManager ldm = map.getLocationDisplayManager();
+                    ldm.setAutoPanMode(LocationDisplayManager.AutoPanMode.NAVIGATION);
+                    ldm.start();
+                    map.centerAt(ldm.getLocation().getLatitude(), ldm.getLocation().getLongitude(), true);
                 }
             }
         });
+    }
 
+    @Override
+    protected void onPostCreate(Bundle savedInstanceState) {
+        super.onPostCreate(savedInstanceState);
+        // Sync the toggle state after onRestoreInstanceState has occurred.
+        mDrawerToggle.syncState();
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        mDrawerToggle.onConfigurationChanged(newConfig);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Pass the event to ActionBarDrawerToggle, if it returns
+        // true, then it has handled the app icon touch event
+        if (mDrawerToggle.onOptionsItemSelected(item)) {
+            return true;
+        }
+        // Handle your other action bar items...
+
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -96,6 +168,43 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         map.unpause();
+    }
+
+    @Override
+    public void onSingleTap(final float x, final float y) {
+
+        Runnable myRunnable = new Runnable() {
+            public void run() {
+                // Create the Locator if it hasn't been created yet
+                Locator mLocator = Locator.createOnlineLocator();
+                // Add the touch point to the MapView
+                Point mapPoint = map.toMapPoint(x, y);
+                Graphic g = new Graphic(mapPoint, new SimpleMarkerSymbol(Color.BLUE, 10, SimpleMarkerSymbol.STYLE.DIAMOND));
+                locationLayer.addGraphic(g);
+
+                try
+
+                {
+                    // Attempt to reverse geocode the touch event
+                    LocatorReverseGeocodeResult result = mLocator.reverseGeocode(mapPoint, 100,
+                            map.getSpatialReference(), map.getSpatialReference());
+
+                    // Reverse geocoding results come back as [key,value] pairs, but you
+                    // can create a formatted address by iterating through and delimiting with spaces
+                    Map<String, String> addressFields = result.getAddressFields();
+                    StringBuilder address = new StringBuilder();
+                    for (Map.Entry<String, String> entry : addressFields.entrySet())
+                        address.append(entry.getValue() != null ? ","+entry.getValue() + ")": "");
+
+                    // Show the address in the Map's callout
+                    Log.d("NC", address.toString());
+                } catch (Exception e) {
+                    Log.e("Reverse Geocoding Error", e.getMessage(), e);
+                }
+            }
+        };
+        new Thread(myRunnable).start();
+
     }
 
     private void executeLocatorTask(String address) {

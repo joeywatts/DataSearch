@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.v4.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
+<android.support.v4.widget.DrawerLayout
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/drawer_layout"
         >
 
     <com.esri.android.map.MapView
@@ -10,7 +12,6 @@
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
             mapoptions.MapType="Streets"
-            mapoptions.center="34.056215, -117.195668"
             mapoptions.ZoomLevel="16">
     </com.esri.android.map.MapView>
 
