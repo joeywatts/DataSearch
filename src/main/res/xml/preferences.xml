@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+    <ListPreference
+        android:key="pref_mapOption"
+        android:title="Map Options"
+        android:dialogTitle="The Options"
+        android:entries="@array/MapOption"
+        android:entryValues="@array/MapOptionAlias"
+        android:defaultValue="Streets" />
+</PreferenceScreen>
