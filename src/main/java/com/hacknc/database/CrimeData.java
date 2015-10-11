@@ -50,7 +50,10 @@ public class CrimeData {
         if (data != null) {
             String query = "SELECT * FROM CrimeData WHERE StateName = ? AND CountyName = ?";
             Cursor cursor = data.rawQuery(query, new String[] {stateName.toUpperCase(), countyName});
-            return parseCursor(cursor).get(0);
+            ArrayList<CrimeDataRow> rows = parseCursor(cursor);
+            if (!rows.isEmpty()) {
+                return rows.get(0);
+            }
         }
         return null;
     }

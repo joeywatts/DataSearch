@@ -12,7 +12,8 @@ import android.view.MenuItem;
 import android.view.View;
 import com.esri.android.map.LocationDisplayManager;
 import com.esri.android.map.event.OnSingleTapListener;
-import com.esri.core.tasks.geocode.LocatorReverseGeocodeResult;
+import com.esri.core.geometry.*;
+import com.esri.core.map.FeatureSet;
 import com.hacknc.census.CensusAPI;
 import com.hacknc.census.CensusRequest;
 import com.hacknc.census.CensusResponseListener;
@@ -20,11 +21,8 @@ import com.hacknc.census.CensusVariable;
 
 import android.widget.Toast;
 import com.esri.android.map.GraphicsLayer;
-import com.esri.android.map.Layer;
 import com.esri.android.map.MapView;
 import com.esri.android.map.event.OnStatusChangedListener;
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Point;
 import com.esri.core.map.Graphic;
 import com.esri.core.symbol.SimpleFillSymbol;
 import com.esri.core.symbol.SimpleMarkerSymbol;
@@ -34,31 +32,49 @@ import com.esri.core.tasks.geocode.LocatorFindParameters;
 import com.esri.core.tasks.geocode.LocatorGeocodeResult;
 
 import com.hacknc.database.CrimeData;
-import com.hacknc.database.DataDB;
 
 import com.hacknc.census.*;
+import static com.hacknc.census.CensusVariable.*;
 import com.hacknc.geocode.GeocodeAPI;
 import com.hacknc.geocode.GeocodeGeometryResultsListener;
 import com.hacknc.geocode.ReverseGeocodeResult;
+import com.hacknc.geocode.ReverseGeocodeResultsListener;
+import org.codehaus.jackson.JsonFactory;
+import org.codehaus.jackson.JsonParser;
+import org.json.JSONObject;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends Activity implements OnSingleTapListener{
+public class MainActivity extends Activity implements OnSingleTapListener {
 
+    static class TractData {
+        Graphic graphic;
+        CensusResultRow censusData;
+        int graphicId;
+    }
+
+    Map<String, TractData> tractIdDataMap;
+    CensusVariable selectedVariable = POPULATION;
     MapView map;
     GraphicsLayer locationLayer;
+    GraphicsLayer polygons;
+    ReverseGeocodeResult lastTap;
     Point locationLayerPoint;
     String locationLayerPointString;
 
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
+    private CensusAPI censusApi;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_layout);
+
+        censusApi = new CensusAPI("***REMOVED***");
 
         /////////////// LOAD DB ///////////////
         CrimeData.loadDB(this);
@@ -66,13 +82,11 @@ public class MainActivity extends Activity implements OnSingleTapListener{
         /////////////// NAV DRAWER ///////////////
 
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-        mDrawerToggle = new ActionBarDrawerToggle(
-                this,                  /* host Activity */
+        mDrawerToggle = new ActionBarDrawerToggle(this,                  /* host Activity */
                 mDrawerLayout,         /* DrawerLayout object */
                 R.drawable.pg_logo,  /* nav drawer icon to replace 'Up' caret */
                 R.string.open_drawer,  /* "open drawer" description */
-                R.string.close_drawer  /* "close drawer" description */
-        ) {
+                R.string.close_drawer  /* "close drawer" description */) {
 
             /** Called when a drawer has settled in a completely closed state. */
             public void onDrawerClosed(View view) {
@@ -150,15 +164,11 @@ public class MainActivity extends Activity implements OnSingleTapListener{
     @Override
     public void onStart() {
         super.onStart();
-        performGeocodeRequest();
     }
 
     private void performCensusRequest(ReverseGeocodeResult result) {
         CensusAPI api = new CensusAPI("***REMOVED***");
-        CensusRequest request = new CensusRequest()
-                .setState(result.getState())
-                .setCounty("*")
-                .setTract("*");
+        CensusRequest request = new CensusRequest().setState(result.getState()).setCounty("*").setTract("*");
         request.add(CensusVariable.POVERTY).add(CensusVariable.POPULATION);
         api.request(request, new CensusResponseListener() {
             @Override
@@ -196,32 +206,6 @@ public class MainActivity extends Activity implements OnSingleTapListener{
         });
     }
 
-    private void performGeocodeRequest() {
-        /**
-        GeocodeAPI.reverseGeocode(38.6159530f, -76.6130150f, new ReverseGeocodeResultsListener() {
-            @Override
-            public void onSuccess(ReverseGeocodeResult result) {
-                performCensusRequest(result);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                Log.d("Geocode", "Error", t);
-            }
-        });*/
-        GeocodeAPI.geocodeGeometryQuery("tract", 38.6159530f, -76.6130150f, map, new SimpleFillSymbol(Color.BLUE), new GeocodeGeometryResultsListener() {
-            @Override
-            public void onSuccess(Layer layer) {
-                map.addLayer(layer);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                Log.d("HackNC", "Error", t);
-            }
-        });
-    }
-
     @Override
     protected void onPause() {
         super.onPause();
@@ -237,38 +221,147 @@ public class MainActivity extends Activity implements OnSingleTapListener{
     @Override
     public void onSingleTap(final float x, final float y) {
 
-        Runnable myRunnable = new Runnable() {
-            public void run() {
-                // Create the Locator if it hasn't been created yet
-                Locator mLocator = Locator.createOnlineLocator();
-                // Add the touch point to the MapView
-                Point mapPoint = map.toMapPoint(x, y);
-                Graphic g = new Graphic(mapPoint, new SimpleMarkerSymbol(Color.BLUE, 10, SimpleMarkerSymbol.STYLE.DIAMOND));
-                locationLayer.addGraphic(g);
+        // Create the Locator if it hasn't been created yet
+        Locator mLocator = Locator.createOnlineLocator();
+        // Add the touch point to the MapView
+        Point mapPoint = map.toMapPoint(x, y);
+        Point longLat = (Point) GeometryEngine.project(mapPoint, map.getSpatialReference(), SpatialReference.create
+                (4326));
+        final float lat = (float) longLat.getY(), lng = (float) longLat.getX();
+        GeocodeAPI.reverseGeocode(lat, lng, new ReverseGeocodeResultsListener() {
+            @Override
+            public void onSuccess(ReverseGeocodeResult result) {
+                lastTap = result;
+                showEachCountyOnMap(result, lat, lng);
+            }
 
-                try
+            @Override
+            public void onError(Throwable t) {
+                Log.d("HackNC", "Error", t);
 
-                {
-                    // Attempt to reverse geocode the touch event
-                    LocatorReverseGeocodeResult result = mLocator.reverseGeocode(mapPoint, 100,
-                            map.getSpatialReference(), map.getSpatialReference());
+            }
+        });
 
-                    // Reverse geocoding results come back as [key,value] pairs, but you
-                    // can create a formatted address by iterating through and delimiting with spaces
-                    Map<String, String> addressFields = result.getAddressFields();
-                    StringBuilder address = new StringBuilder();
-                    for (Map.Entry<String, String> entry : addressFields.entrySet())
-                        address.append(entry.getValue() != null ? ","+entry.getValue() + ")": "");
+    }
 
-                    // Show the address in the Map's callout
-                    Log.d("NC", address.toString());
+    private void showEachCountyOnMap(final ReverseGeocodeResult geocodeResult, float lat, float lng) {
+        GeocodeAPI.geocodeGeometryQuery("county", lat, lng, new GeocodeGeometryResultsListener() {
+            @Override
+            public void onSuccess(String countyJson) {
+                try {
+                    JSONObject countyObj = new JSONObject(countyJson);
+                    String countyGeom = countyObj.getJSONArray("features").getJSONObject(0).get("geometry").toString();
+                    GeocodeAPI.geocodeGeometryQuery("tract", countyGeom, new GeocodeGeometryResultsListener() {
+                        @Override
+                        public void onSuccess(String geometry) {
+                            try {
+                                JsonFactory factory = new JsonFactory();
+                                JsonParser parser = factory.createJsonParser(geometry);
+                                FeatureSet featureSet = FeatureSet.fromJson(parser);
+                                Graphic[] graphics = featureSet.getGraphics();
+                                if (graphics == null) {
+                                    return;
+                                }
+                                if (polygons != null) {
+                                    map.removeLayer(polygons);
+                                }
+                                polygons = new GraphicsLayer(GraphicsLayer.RenderingMode.DYNAMIC);
+                                tractIdDataMap = new HashMap<>();
+                                for (int i = 0; i < graphics.length; i++) {
+                                    Geometry geom = graphics[i].getGeometry();
+                                    geom = GeometryEngine.project(geom, SpatialReference.create(4326), map
+                                            .getSpatialReference());
+
+                                    Graphic g = new Graphic(geom, new SimpleFillSymbol(Color.argb(125, 255, 0, 0)),
+                                            graphics[i].getAttributes());
+                                    TractData tractData = new TractData();
+                                    tractData.graphic = g;
+                                    tractIdDataMap.put(graphics[i].getAttributeValue("TRACT").toString(), tractData);
+                                    int graphicId = polygons.addGraphic(g);
+                                    tractData.graphicId = graphicId;
+                                }
+                                map.addLayer(polygons);
+                                loadDataForTracts(geocodeResult, tractIdDataMap);
+                            } catch (Exception e) {
+                                Log.d("HackNC", "Error", e);
+                            }
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            Log.d("HackNC", "Error", t);
+                        }
+                    });
                 } catch (Exception e) {
-                    Log.e("Reverse Geocoding Error", e.getMessage(), e);
+                    Log.d("HackNC", "Error", e);
                 }
             }
-        };
-        new Thread(myRunnable).start();
 
+            @Override
+            public void onError(Throwable t) {
+                Log.d("HackNC", "Error", t);
+            }
+        });
+    }
+
+    private void loadDataForTracts (ReverseGeocodeResult geocodeResult, final Map<String, TractData> map) {
+        CensusRequest request = new CensusRequest();
+        request.setState(geocodeResult.getState()).setCounty(geocodeResult.getCounty()).setTract("*");
+        request.add(POPULATION);
+        censusApi.request(request, new CensusResponseListener() {
+            @Override
+            public void onResponse(CensusResultRow[] response) {
+                for (CensusResultRow row : response) {
+                    String tractsplit[] = row.getTract().split(" ");
+                    String tract = "";
+                    for (char c : tractsplit[tractsplit.length - 1].toCharArray()) {
+                        if (Character.isDigit(c)) {
+                            tract += c;
+                        }
+                    }
+                    if (tract.length() == 3) {
+                        tract += "00";
+                    }
+                    while (tract.length() < 6) {
+                        tract = "0" + tract;
+                    }
+                    TractData data = map.get(tract);
+                    if (data == null) {
+                        continue;
+                    }
+                    data.censusData = row;
+                }
+                setTractColorsWithData(selectedVariable);
+                // Do something with the census data.
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Log.d("HackNC", "Error", t);
+            }
+        });
+    }
+
+    private void setTractColorsWithData(CensusVariable var) {
+        if (tractIdDataMap == null) {
+            return;
+        }
+        double max = Double.MIN_VALUE, min = Double.MAX_VALUE;
+        for (TractData data : tractIdDataMap.values()) {
+            if (data.censusData == null) continue;
+            double d = Double.parseDouble(data.censusData.getData().get(var));
+            max = Math.max(max, d);
+            min = Math.min(min, d);
+        }
+        for (TractData data : tractIdDataMap.values()) {
+            if (data.censusData == null) continue;
+            double score = Double.parseDouble(data.censusData.getData().get(var));
+            score = (score - min) / (max - min);
+            Log.d("Color", "" + score * 360.0f * 0.4f);
+            float[] hsv = {360.0f * (float) score * 0.4f, 0.9f, 0.9f};
+            int color = Color.HSVToColor(125, hsv);
+            polygons.updateGraphic(data.graphicId, new SimpleFillSymbol(color));
+        }
     }
 
     private void executeLocatorTask(String address) {
@@ -327,7 +420,8 @@ public class MainActivity extends Activity implements OnSingleTapListener{
                 // get return geometry from geocode result
                 Point resultPoint = geocodeResult.getLocation();
                 // create marker symbol to represent location
-                SimpleMarkerSymbol resultSymbol = new SimpleMarkerSymbol(Color.RED, 16, SimpleMarkerSymbol.STYLE.CIRCLE);
+                SimpleMarkerSymbol resultSymbol = new SimpleMarkerSymbol(Color.RED, 16, SimpleMarkerSymbol.STYLE
+                        .CIRCLE);
                 // create graphic object for resulting location
                 Graphic resultLocGraphic = new Graphic(resultPoint, resultSymbol);
                 // add graphic to location layer
