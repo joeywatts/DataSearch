@@ -12,18 +12,17 @@ import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.provider.MediaStore;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.widget.DrawerLayout;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
-import android.widget.SearchView;
+import android.view.ViewGroup;
+import android.widget.*;
 
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.SearchView;
-import android.widget.Toast;
 import com.esri.android.map.GraphicsLayer;
 import com.esri.android.map.LocationDisplayManager;
 import com.esri.android.map.MapOptions;
@@ -54,7 +53,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static com.hacknc.census.CensusVariable.POPULATION;
+import static com.hacknc.census.CensusVariable.*;
 
 
 public class MainActivity extends Activity implements OnSingleTapListener, OnSharedPreferenceChangeListener {
@@ -80,8 +79,33 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
     private CensusAPI censusApi;
     private OnSharedPreferenceChangeListener prefListener;
 
-    @Override
+    private final CensusVariable[] array = {POPULATION, EDUCATION_NONE, POVERTY, AGE, COMMUTE_TIME, EMPLOYMENT_UNEMPLOYED, INCOME_PER_CAPITA};
+    private class SidebarAdapter extends ArrayAdapter<CensusVariable> {
+        SidebarAdapter() {
+            super(MainActivity.this, R.layout.drawer_item, array);
+        }
 
+        @Override
+        public View getView(final int position, View convertView, ViewGroup parent) {
+            //if (convertView == null) {
+                convertView = getLayoutInflater().inflate(R.layout.drawer_item, parent, false);
+            //}
+            RadioButton r = (RadioButton) convertView.findViewById(R.id.drawer_item);
+            r.setText(array[position].toString());
+            r.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    ((RadioButton) v).setChecked(true);
+                    mDrawerLayout.closeDrawers();
+                    setTractColorsWithData(array[position]);
+                }
+            });
+            if (array[position] == selectedVariable) r.setChecked(array[position].equals(selectedVariable));
+            return convertView;
+        }
+    }
+
+    @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_layout);
@@ -93,6 +117,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
 
         /////////////// NAV DRAWER ///////////////
 
+        final ListView drawer_list = (ListView) findViewById(R.id.left_drawer);
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         mDrawerToggle = new ActionBarDrawerToggle(this,                  /* host Activity */
                 mDrawerLayout,         /* DrawerLayout object */
@@ -110,11 +135,10 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
             public void onDrawerOpened(View drawerView) {
                 super.onDrawerOpened(drawerView);
                 getActionBar().setTitle("Options");
+                ((SidebarAdapter)drawer_list.getAdapter()).notifyDataSetChanged();
             }
 
         };
-
-        mDrawerLayout.setDrawerListener(mDrawerToggle);
 
         // Set the drawer toggle as the DrawerListener
         mDrawerLayout.setDrawerListener(mDrawerToggle);
@@ -122,9 +146,8 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setHomeButtonEnabled(true);
 
-        final ListView drawer_list = (ListView) findViewById(R.id.left_drawer);
-        drawer_list.setAdapter(new ArrayAdapter<String>(this,
-                R.layout.drawer_item, new String[] {"one", "two", "three"}));
+
+        drawer_list.setAdapter(new SidebarAdapter());
 
         /////////////// MAP ///////////////
 
@@ -363,7 +386,8 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
     private void loadDataForTracts(ReverseGeocodeResult geocodeResult, final Map<String, TractData> map) {
         CensusRequest request = new CensusRequest();
         request.setState(geocodeResult.getState()).setCounty(geocodeResult.getCounty()).setTract("*");
-        request.add(POPULATION);
+        for (CensusVariable var : array)
+            request.add(var);
         censusApi.request(request, new CensusResponseListener() {
             @Override
             public void onResponse(CensusResultRow[] response) {
@@ -402,16 +426,29 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
         if (tractIdDataMap == null) {
             return;
         }
+        selectedVariable = var;
         double max = Double.MIN_VALUE, min = Double.MAX_VALUE;
         for (TractData data : tractIdDataMap.values()) {
             if (data.censusData == null) continue;
-            double d = Double.parseDouble(data.censusData.getData().get(var));
+            String s = data.censusData.getData().get(var);
+            double d;
+            try {
+                d =Double.parseDouble(s);
+            } catch (Throwable t) {
+                d = 0;
+            }
             max = Math.max(max, d);
             min = Math.min(min, d);
         }
         for (TractData data : tractIdDataMap.values()) {
             if (data.censusData == null) continue;
-            double score = Double.parseDouble(data.censusData.getData().get(var));
+            String s = data.censusData.getData().get(var);
+            double score;
+            try {
+                score = Double.parseDouble(s);
+            } catch (Throwable t) {
+                score = min;
+            }
             score = (score - min) / (max - min);
             float[] hsv = {120.0f * (float) score, 0.9f, 0.9f};
             int color = Color.HSVToColor(125, hsv);
