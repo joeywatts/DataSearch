@@ -13,7 +13,10 @@ import org.json.JSONObject;
 public class GeocodeAPI {
     private static AsyncHttpClient client = new AsyncHttpClient();
     public static void reverseGeocode(final float lat, final float lon, final GeocodeResultsListener listener) {
-        String url = "http://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=" + lon + "&y=" + lat + "&benchmark=4&vintage=4&layers=8,12,28,86,84&format=json";
+        doReverseGeocode(0, lat, lon, listener);
+    }
+    private static void doReverseGeocode(final int tries, final float lat, final float lon, final GeocodeResultsListener listener) {
+        String url = "http://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=" + lon + "&y=" + lat + "&benchmark=Public_AR_Current&vintage=Current_Current&format=json";
         client.get(url, new JsonHttpResponseHandler() {
             @Override
             public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
@@ -27,7 +30,11 @@ public class GeocodeAPI {
                             fipsData.getString("BLKGRP")
                     ));
                 } catch (JSONException e) {
-                    listener.onError(e);
+                    if (tries > 2) {
+                        listener.onError(e);
+                    } else {
+                        doReverseGeocode(tries + 1, lat, lon, listener);
+                    }
                 }
             }
 

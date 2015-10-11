@@ -5,10 +5,7 @@ import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
-import com.hacknc.census.CensusAPI;
-import com.hacknc.census.CensusRequest;
-import com.hacknc.census.CensusResponseListener;
-import com.hacknc.census.CensusVariable;
+import com.hacknc.census.*;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -72,14 +69,25 @@ public class MainActivity extends Activity {
         CensusAPI api = new CensusAPI("***REMOVED***");
         CensusRequest request = new CensusRequest()
                 .setState(result.getState())
-                .setCounty(result.getCounty());
+                .setCounty("*")
+                .setTract("*");
         request.add(CensusVariable.POVERTY).add(CensusVariable.POPULATION);
         api.request(request, new CensusResponseListener() {
             @Override
-            public void onResponse(County[] result) {
+            public void onResponse(CensusResultRow[] result) {
                 for (int i = 0; i < result.length; i++) {
-                    County c = result[i];
-                    String s = "['" + c.getName() + ", " + c.getState() + "'";
+                    CensusResultRow c = result[i];
+                    String loc = "";
+                    if (c.getBlockGroup() != null) {
+                        loc += c.getBlockGroup() + ", ";
+                    } if (c.getTract() != null) {
+                        loc += c.getTract() + ", ";
+                    } if (c.getCounty() != null) {
+                        loc += c.getCounty() + ", ";
+                    } if (c.getState() != null) {
+                        loc += c.getState();
+                    }
+                    String s = "['" + loc + "'";
                     Iterator<Map.Entry<CensusVariable, String>> iter = c.getData().entrySet().iterator();
                     while (iter.hasNext()) {
                         Map.Entry<CensusVariable, String> entry = iter.next();

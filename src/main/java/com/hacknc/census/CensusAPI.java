@@ -1,10 +1,6 @@
 package com.hacknc.census;
 
 import android.util.Log;
-import com.hacknc.County;
-import com.hacknc.geocode.GeocodeAPI;
-import com.hacknc.geocode.GeocodeResult;
-import com.hacknc.geocode.GeocodeResultsListener;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
 import com.loopj.android.http.RequestParams;
@@ -37,16 +33,19 @@ public class CensusAPI {
         String state = request.getState();
         String tract = request.getTract();
         String blockGroup = request.getBlockGroup();
+        String combinator = "&in=";
 
         String forString = "&for=";
         if (blockGroup != null) {
-            forString += "block+group:" + blockGroup + "&in=";
+            forString += "block+group:" + blockGroup + combinator;
+            combinator = "+";
         }
         if (tract != null) {
-            forString += "tract:" + tract + "&in=";
+            forString += "tract:" + tract + combinator;
+            combinator = "+";
         }
         if (county != null) {
-            forString += "county:" + county + "&in=";
+            forString += "county:" + county + combinator;
         }
         if (state != null) {
             forString += "state:" + state;
@@ -58,14 +57,21 @@ public class CensusAPI {
             public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
                 try {
                     String response = new String(responseBody, DEFAULT_CHARSET);
-                    Log.d("Census", response);
                     JSONArray array = new JSONArray(response);
                     Map<CensusVariable, String> data = new HashMap<>();
-                    County result[] = new County[array.length()-1];
+                    CensusResultRow result[] = new CensusResultRow[array.length()-1];
                     for (int i = 1; i < array.length(); i++) {
                         String name = array.getJSONArray(i).getString(0);
                         String split[] = name.split(", ");
-                        result[i - 1] = new County(split[0], split[1]);
+                        result[i - 1] = new CensusResultRow();
+                        if (split.length >= 2) {
+                            result[i - 1].setState(split[split.length - 1]);
+                            result[i - 1].setCounty(split[split.length - 2]);
+                        } if (split.length >= 3) {
+                            result[i - 1].setTract(split[split.length - 3]);
+                        } if (split.length >= 4) {
+                            result[i - 1].setBlockGroup(split[split.length - 4]);
+                        }
                     }
                     int column = 1;
                     for (CensusVariable variable : request.getVariables()) {
