@@ -10,6 +10,7 @@ import com.hacknc.census.CensusRequest;
 import com.hacknc.census.CensusResponseListener;
 import com.hacknc.census.CensusVariable;
 
+import java.util.Iterator;
 import java.util.Map;
 import android.widget.Toast;
 import com.esri.android.map.GraphicsLayer;
@@ -23,6 +24,9 @@ import com.esri.core.symbol.TextSymbol;
 import com.esri.core.tasks.geocode.LocatorFindParameters;
 import com.esri.core.tasks.geocode.Locator;
 import com.esri.core.tasks.geocode.LocatorGeocodeResult;
+import com.hacknc.geocode.GeocodeAPI;
+import com.hacknc.geocode.GeocodeResult;
+import com.hacknc.geocode.GeocodeResultsListener;
 
 import java.util.List;
 
@@ -61,27 +65,48 @@ public class MainActivity extends Activity {
     @Override
     public void onStart() {
         super.onStart();
-        performRequest();
+        performGeocodeRequest();
     }
 
-    private void performRequest() {
+    private void performCensusRequest(GeocodeResult result) {
         CensusAPI api = new CensusAPI("***REMOVED***");
-        County county = new County("*", "06");
-        CensusRequest request = new CensusRequest(county);
-        request.add(CensusVariable.POPULATION_BLACK_ALONE);
-        Log.d("Hello", "World");
+        CensusRequest request = new CensusRequest()
+                .setState(result.getState())
+                .setCounty(result.getCounty());
+        request.add(CensusVariable.POVERTY).add(CensusVariable.POPULATION);
         api.request(request, new CensusResponseListener() {
             @Override
-            public void onResponse(Map<CensusVariable, String> response) {
-                for (Map.Entry<CensusVariable, String> entry : response.entrySet()) {
-                    Log.d("HackNC", entry.getKey() + " - " + entry.getValue());
+            public void onResponse(County[] result) {
+                for (int i = 0; i < result.length; i++) {
+                    County c = result[i];
+                    String s = "['" + c.getName() + ", " + c.getState() + "'";
+                    Iterator<Map.Entry<CensusVariable, String>> iter = c.getData().entrySet().iterator();
+                    while (iter.hasNext()) {
+                        Map.Entry<CensusVariable, String> entry = iter.next();
+                        s += ", " + entry.getKey() + " -> '" + entry.getValue() + "'";
+                    }
+                    s += "]";
+                    Log.d("Census", s);
                 }
-                Log.d("HackNC", "done");
             }
 
             @Override
             public void onError(Throwable t) {
                 Log.d("HackNC", "Error", t);
+            }
+        });
+    }
+
+    private void performGeocodeRequest() {
+        GeocodeAPI.reverseGeocode(38.6159530f, -76.6130150f, new GeocodeResultsListener() {
+            @Override
+            public void onSuccess(GeocodeResult result) {
+                performCensusRequest(result);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                Log.d("Geocode", "Error", t);
             }
         });
     }
