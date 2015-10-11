@@ -3,9 +3,9 @@ package com.hacknc.geocode;
 /**
  * Created by joeywatts on 10/10/15.
  */
-public class GeocodeResult {
+public class ReverseGeocodeResult {
     private String state, county, tract, blockGroup;
-    public GeocodeResult(String state, String county, String tract, String blockGroup) {
+    public ReverseGeocodeResult(String state, String county, String tract, String blockGroup) {
         this.state = state;
         this.county = county;
         this.tract = tract;
