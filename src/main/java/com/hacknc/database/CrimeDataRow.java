@@ -60,6 +60,8 @@ public class CrimeDataRow {
      * @return score for the county
      */
     public double getScore (boolean violent, boolean property) {
+        if (population == 0)
+            return -1;
         return (3.0 * (violent ? violentCrime : 0) + 2.0 * (property ? propertyCrime : 0)) / population;
     }
 }

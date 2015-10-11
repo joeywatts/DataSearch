@@ -23,6 +23,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.SearchView;
+import android.widget.Toast;
 import com.esri.android.map.GraphicsLayer;
 import com.esri.android.map.LocationDisplayManager;
 import com.esri.android.map.MapOptions;
@@ -40,6 +41,7 @@ import com.esri.core.tasks.geocode.LocatorFindParameters;
 import com.esri.core.tasks.geocode.LocatorGeocodeResult;
 import com.hacknc.census.*;
 import com.hacknc.database.CrimeData;
+import com.hacknc.database.CrimeDataRow;
 import com.hacknc.geocode.GeocodeAPI;
 import com.hacknc.geocode.GeocodeGeometryResultsListener;
 import com.hacknc.geocode.ReverseGeocodeResult;
@@ -49,7 +51,6 @@ import org.codehaus.jackson.JsonParser;
 import org.json.JSONObject;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -128,7 +129,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
             /** Called when a drawer has settled in a completely closed state. */
             public void onDrawerClosed(View view) {
                 super.onDrawerClosed(view);
-                getActionBar().setTitle("HackNC");
+                getActionBar().setTitle("Safe Search");
             }
 
             /** Called when a drawer has settled in a completely open state. */
@@ -302,7 +303,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
         // Create the Locator if it hasn't been created yet
         Locator mLocator = Locator.createOnlineLocator();
         // Add the touch point to the MapView
-        Point mapPoint = map.toMapPoint(x, y);
+        final Point mapPoint = map.toMapPoint(x, y);
         Point longLat = (Point) GeometryEngine.project(mapPoint, map.getSpatialReference(), SpatialReference.create
                 (4326));
         final float lat = (float) longLat.getY(), lng = (float) longLat.getX();
@@ -311,6 +312,27 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
             public void onSuccess(ReverseGeocodeResult result) {
                 lastTap = result;
                 showEachCountyOnMap(result, lat, lng);
+                Log.d("NC", "------" + result.getCountyName() + " " + result.getStateName());
+                final int MAX = 138;
+                CrimeDataRow row = CrimeData.getData(result.getStateName(), result.getCountyName());
+                if (row == null && (result.getCountyName().endsWith("County") || result.getCountyName().endsWith("city")))
+                    row = CrimeData.getData(result.getStateName(), result.getCountyName().replace("County", "").replace("city", "").trim());
+                if (row != null) {
+                    double countyScore = row.getScore();
+                    if (countyScore == - 1)
+                        return;
+                    countyScore = Math.round(10 * (countyScore / 15 * 10)) / 10.0;
+
+                    SimpleMarkerSymbol simpleMarker = new SimpleMarkerSymbol(Color.RED, 10, SimpleMarkerSymbol.STYLE.CIRCLE);
+                    Graphic pointGraphic = new Graphic(mapPoint, simpleMarker);
+                    locationLayer.addGraphic(pointGraphic);
+
+                    TextSymbol txtSymbol = new TextSymbol(10, result.getCountyName() + " has a crime score of " + countyScore + "/10", Color.BLUE);
+                    Point pt = new Point(mapPoint.getX(), mapPoint.getY() + 20);
+                    Graphic gr = new Graphic(pt, txtSymbol);
+                    locationLayer.addGraphic(gr);
+                    Log.d("NC", "Created points!");
+                }
             }
 
             @Override
