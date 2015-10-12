@@ -111,7 +111,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_layout);
 
-        censusApi = new CensusAPI("***REMOVED***");
+        censusApi = new CensusAPI("PUT YOUR API KEY HERE");
 
         /////////////// LOAD DB ///////////////
         CrimeData.loadDB(this);
@@ -166,7 +166,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
         map.setOnStatusChangedListener(new OnStatusChangedListener() {
             public void onStatusChanged(Object source, STATUS status) {
                 if ((source == map) && (status == STATUS.INITIALIZED)) {
-                    //executeLocatorTask("***REMOVED***");
+                    //executeLocatorTask("1600 Pennsylvania Ave NW, Washington, DC 20500");
                     LocationDisplayManager ldm = map.getLocationDisplayManager();
                     ldm.setAutoPanMode(LocationDisplayManager.AutoPanMode.NAVIGATION);
                     ldm.start();
