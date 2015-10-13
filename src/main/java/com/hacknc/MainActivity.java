@@ -104,13 +104,13 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
             /** Called when a drawer has settled in a completely closed state. */
             public void onDrawerClosed(View view) {
                 super.onDrawerClosed(view);
-                getActionBar().setTitle("Safe Search");
+                getActionBar().setTitle(R.string.app_name);
             }
 
             /** Called when a drawer has settled in a completely open state. */
             public void onDrawerOpened(View drawerView) {
                 super.onDrawerOpened(drawerView);
-                getActionBar().setTitle("Options");
+                getActionBar().setTitle("Data Options");
             }
 
         };
