@@ -126,6 +126,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
 			RadioButton button = new RadioButton(this);
 			button.setText(array[i].toString());
 			button.setTag(array[i]);
+			button.setId(i);
 			button.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
 				@Override
 				public void onCheckedChanged(CompoundButton view, boolean isChecked) {
