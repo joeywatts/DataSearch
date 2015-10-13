@@ -139,6 +139,9 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
 				}
 			});
 			drawer_list.addView(button);
+			if (array[i] == selectedVariable) {
+				drawer_list.check(i);
+			}
 		}
 		drawer_list.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
 			@Override
