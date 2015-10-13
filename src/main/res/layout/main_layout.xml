@@ -15,15 +15,17 @@
             mapoptions.ZoomLevel="16">
     </com.esri.android.map.MapView>
 
-    <ListView
-            android:id="@+id/left_drawer"
-            android:layout_width="240dp"
-            android:layout_height="match_parent"
-            android:layout_gravity="start"
-            android:choiceMode="singleChoice"
-            android:divider="@android:color/transparent"
-            android:dividerHeight="0dp"
-            android:background="#111"
-            />
+	<ScrollView
+		android:id="@+id/left_drawer_scrollview"
+		android:layout_width="240dp"
+		android:layout_height="match_parent"
+		android:layout_gravity="start"
+		android:background="#111" >
+      <RadioGroup
+          android:id="@+id/left_drawer"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          />
+	</ScrollView>
 </android.support.v4.widget.DrawerLayout>
 

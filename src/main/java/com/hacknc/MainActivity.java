@@ -80,31 +80,7 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
     private CensusAPI censusApi;
     private OnSharedPreferenceChangeListener prefListener;
 
-    private final CensusVariable[] array = {POPULATION, EDUCATION_NONE, POVERTY, AGE, COMMUTE_TIME, EMPLOYMENT_UNEMPLOYED, INCOME_PER_CAPITA};
-    private class SidebarAdapter extends ArrayAdapter<CensusVariable> {
-        SidebarAdapter() {
-            super(MainActivity.this, R.layout.drawer_item, array);
-        }
-
-        @Override
-        public View getView(final int position, View convertView, ViewGroup parent) {
-            //if (convertView == null) {
-                convertView = getLayoutInflater().inflate(R.layout.drawer_item, parent, false);
-            //}
-            RadioButton r = (RadioButton) convertView.findViewById(R.id.drawer_item);
-            r.setText(array[position].toString());
-            r.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ((RadioButton) v).setChecked(true);
-                    mDrawerLayout.closeDrawers();
-                    setTractColorsWithData(array[position]);
-                }
-            });
-            if (array[position] == selectedVariable) r.setChecked(array[position].equals(selectedVariable));
-            return convertView;
-        }
-    }
+    private final CensusVariable[] array = CensusVariable.values();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -118,7 +94,6 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
 
         /////////////// NAV DRAWER ///////////////
 
-        final ListView drawer_list = (ListView) findViewById(R.id.left_drawer);
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         mDrawerToggle = new ActionBarDrawerToggle(this,                  /* host Activity */
                 mDrawerLayout,         /* DrawerLayout object */
@@ -136,7 +111,6 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
             public void onDrawerOpened(View drawerView) {
                 super.onDrawerOpened(drawerView);
                 getActionBar().setTitle("Options");
-                ((SidebarAdapter)drawer_list.getAdapter()).notifyDataSetChanged();
             }
 
         };
@@ -147,8 +121,31 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setHomeButtonEnabled(true);
 
-
-        drawer_list.setAdapter(new SidebarAdapter());
+        final RadioGroup drawer_list = (RadioGroup) findViewById(R.id.left_drawer);
+		for (int i = 0; i < array.length; i++) {
+			RadioButton button = new RadioButton(this);
+			button.setText(array[i].toString());
+			button.setTag(array[i]);
+			button.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+				@Override
+				public void onCheckedChanged(CompoundButton view, boolean isChecked) {
+					if (isChecked) {
+						CensusVariable v = (CensusVariable) view.getTag();
+						selectedVariable = v;
+						if (lastTap != null) {
+							loadDataForTracts(lastTap, tractIdDataMap);
+						}
+					}
+				}
+			});
+			drawer_list.addView(button);
+		}
+		drawer_list.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+			@Override
+			public void onCheckedChanged(RadioGroup rg, int i) {
+				mDrawerLayout.closeDrawers();
+			}
+		});
 
         /////////////// MAP ///////////////
 
@@ -325,12 +322,16 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
 
                     SimpleMarkerSymbol simpleMarker = new SimpleMarkerSymbol(Color.RED, 10, SimpleMarkerSymbol.STYLE.CIRCLE);
                     Graphic pointGraphic = new Graphic(mapPoint, simpleMarker);
+					if (locationLayer != null) {
+						map.removeLayer(locationLayer);
+					}
+					locationLayer = new GraphicsLayer();
                     locationLayer.addGraphic(pointGraphic);
-
                     TextSymbol txtSymbol = new TextSymbol(10, result.getCountyName() + " has a crime score of " + countyScore + "/10", Color.BLUE);
                     Point pt = new Point(mapPoint.getX(), mapPoint.getY() + 20);
                     Graphic gr = new Graphic(pt, txtSymbol);
                     locationLayer.addGraphic(gr);
+					map.addLayer(locationLayer);
                     Log.d("NC", "Created points!");
                 }
             }
@@ -406,10 +407,11 @@ public class MainActivity extends Activity implements OnSingleTapListener, OnSha
 
 
     private void loadDataForTracts(ReverseGeocodeResult geocodeResult, final Map<String, TractData> map) {
+		if (selectedVariable == null)
+			return;
         CensusRequest request = new CensusRequest();
         request.setState(geocodeResult.getState()).setCounty(geocodeResult.getCounty()).setTract("*");
-        for (CensusVariable var : array)
-            request.add(var);
+		request.add(selectedVariable);
         censusApi.request(request, new CensusResponseListener() {
             @Override
             public void onResponse(CensusResultRow[] response) {
